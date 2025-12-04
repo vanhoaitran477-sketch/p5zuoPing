@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Hand Spray AR",
+  "description": "An AR spray paint experience controlled by hand gestures. Pinch to spray, move hand closer/further to change intensity, click mouse to change colors.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
