@@ -82,16 +82,28 @@ const SprayCanvas: React.FC = () => {
     };
 
     const sketch = (p: p5) => {
+      let paintLayer: p5.Graphics;
+
       p.setup = () => {
         if (!containerRef.current) return;
         const canvas = p.createCanvas(window.innerWidth, window.innerHeight);
         canvas.parent(containerRef.current);
+        
+        // Create an off-screen graphics buffer for the persistent paint
+        paintLayer = p.createGraphics(window.innerWidth, window.innerHeight);
+        paintLayer.clear();
+        paintLayer.noStroke();
+
         p.clear(); // Transparent background
         p.noStroke();
       };
 
       p.draw = () => {
-        // We do not clear the background to allow paint to accumulate
+        // 1. Clear the main canvas frame
+        p.clear();
+        
+        // 2. Draw the persistent paint layer onto the main canvas
+        p.image(paintLayer, 0, 0);
         
         const results = handResultsRef.current;
         if (results && results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -121,7 +133,7 @@ const SprayCanvas: React.FC = () => {
           const sprayX = (1 - (thumbTip.x + indexTip.x) / 2) * width; // Mirror X
           const sprayY = ((thumbTip.y + indexTip.y) / 2) * height;
 
-          // Visual cursor for hand position
+          // Visual cursor for hand position (Drawn on main canvas 'p', so it doesn't persist)
           p.push();
           p.stroke(255, 150);
           p.strokeWeight(2);
@@ -150,8 +162,8 @@ const SprayCanvas: React.FC = () => {
             const factor = p.map(normalizedSize, 50, 300, 1, 0); 
             
             // Parameters
-            // Close (Weak): Small spread, fewer particles, more transparent?
-            // Far (Strong): Wide spread, dense particles, opaque?
+            // Close (Weak): Small spread, fewer particles, more transparent
+            // Far (Strong): Wide spread, dense particles, opaque
             
             const spreadRadius = p.map(factor, 0, 1, 10, 60); 
             const particleCount = p.map(factor, 0, 1, 5, 40); 
@@ -161,8 +173,9 @@ const SprayCanvas: React.FC = () => {
             const col = p.color(PALETTE[colorIndexRef.current]);
             col.setAlpha(opacity);
             
-            p.noStroke();
-            p.fill(col);
+            // Draw onto the paintLayer (persistent)
+            paintLayer.noStroke();
+            paintLayer.fill(col);
 
             for (let i = 0; i < particleCount; i++) {
               // Gaussian distribution for more realistic spray center
@@ -170,15 +183,13 @@ const SprayCanvas: React.FC = () => {
               const xOffset = p.randomGaussian(0, spreadRadius / 3);
               const yOffset = p.randomGaussian(0, spreadRadius / 3);
               
-              // Constrain to radius circle if needed, but gaussian naturally tapers
-              
               const px = sprayX + xOffset;
               const py = sprayY + yOffset;
               
               // Vary individual particle size slightly
               const pSize = p.random(particleSizeBase * 0.5, particleSizeBase * 1.5);
               
-              p.circle(px, py, pSize);
+              paintLayer.circle(px, py, pSize);
             }
           }
         }
@@ -186,6 +197,7 @@ const SprayCanvas: React.FC = () => {
 
       p.windowResized = () => {
         p.resizeCanvas(window.innerWidth, window.innerHeight);
+        paintLayer.resizeCanvas(window.innerWidth, window.innerHeight);
       };
 
       p.mousePressed = () => {
@@ -196,7 +208,7 @@ const SprayCanvas: React.FC = () => {
       p.keyPressed = () => {
         // Clear canvas on Space bar
         if (p.key === ' ') {
-          p.clear();
+          paintLayer.clear();
         }
       };
     };
